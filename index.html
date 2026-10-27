@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>자료 공유실</title>
+<style>
+  :root {
+    --bg: #f4f6fb; --surface: #ffffff; --surface-2: #f8fafc; --border: #e5e7eb;
+    --text: #111827; --muted: #6b7280; --primary: #4f46e5; --primary-weak: #eef2ff;
+    --danger: #dc2626; --danger-weak: #fef2f2; --success: #059669; --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1020; --surface: #131a2e; --surface-2: #19213a; --border: #26304d;
+      --text: #e5e7eb; --muted: #9ca3af; --primary: #818cf8; --primary-weak: #1e2550;
+      --danger: #f87171; --danger-weak: #3a1a1f; --success: #34d399; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 14px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; padding: 4px 10px 18px; }
+  .brand-logo { width: 34px; height: 34px; border-radius: 10px; background: var(--primary); color: #fff; display: grid; place-items: center; font-size: 18px; }
+  .nav-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 0; background: transparent; cursor: pointer; text-align: left; color: var(--muted); font-weight: 600; }
+  .nav-btn:hover { background: var(--surface-2); color: var(--text); }
+  .nav-btn.active { background: var(--primary-weak); color: var(--primary); }
+  .sidebar-foot { margin-top: auto; padding: 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px; }
+  .mode-label { color: var(--muted); margin-bottom: 8px; }
+  .mode-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+  .mode-badge.learner { background: #dcfce7; color: #166534; }
+  .mode-badge.admin { background: #fee2e2; color: #991b1b; }
+  .main { padding: 28px 32px 60px; min-width: 0; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  .page-head h1 { margin: 0; font-size: 24px; }
+  .page-head p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+
+  /* Components */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .btn:hover { background: var(--surface-2); }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.08); background: var(--primary); }
+  .btn-danger { color: var(--danger); border-color: transparent; background: var(--danger-weak); }
+  .btn-danger:hover { background: var(--danger-weak); filter: brightness(.97); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .input, .textarea, .select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); outline: none; }
+  .input:focus, .textarea:focus, .select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-weak); }
+  .textarea { min-height: 110px; resize: vertical; }
+  label.field { display: block; font-weight: 600; font-size: 14px; margin-bottom: 16px; }
+  label.field > span { display: block; margin-bottom: 6px; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .stat { padding: 16px 18px; }
+  .stat-label { color: var(--muted); font-size: 13px; }
+  .stat-value { font-size: 24px; font-weight: 800; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stat-value.small { font-size: 15px; font-weight: 700; padding-top: 6px; }
+
+  /* Toolbar & grid */
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
+  .search { position: relative; flex: 1; }
+  .search .input { padding-left: 38px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .toolbar .select { width: 160px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .item { padding: 18px; display: flex; flex-direction: column; gap: 12px; transition: transform .15s, box-shadow .15s; }
+  .item:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .item-top { display: flex; gap: 12px; align-items: flex-start; }
+  .ext { flex: none; width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase; }
+  .item-title { font-weight: 700; font-size: 16px; margin: 0; word-break: break-all; }
+  .item-file { color: var(--muted); font-size: 12px; margin-top: 3px; word-break: break-all; }
+  .item-desc { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .item-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .item-actions { display: flex; gap: 8px; margin-top: auto; }
+  .item-actions .btn-primary { flex: 1; }
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-icon { font-size: 42px; margin-bottom: 8px; }
+  mark { background: #fde68a; color: inherit; border-radius: 3px; padding: 0 1px; }
+
+  /* Upload */
+  .panel { padding: 24px; max-width: 720px; }
+  .dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 28px; text-align: center; cursor: pointer; color: var(--muted); background: var(--surface-2); transition: .15s; }
+  .dropzone.drag, .dropzone:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-weak); }
+  .dropzone strong { color: var(--text); }
+  .file-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--primary-weak); font-size: 14px; }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .section-title { font-size: 16px; margin: 0 0 6px; }
+  .section-desc { color: var(--muted); font-size: 14px; margin: 0 0 14px; line-height: 1.6; }
+  .manage-grid { display: grid; gap: 14px; max-width: 720px; }
+  .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .notice { padding: 12px 14px; border-radius: 10px; background: var(--primary-weak); color: var(--primary); font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+
+  /* Modal & toast */
+  .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: grid; place-items: center; padding: 16px; z-index: 50; }
+  .modal { width: 100%; max-width: 380px; padding: 22px; }
+  .modal h3 { margin: 0 0 8px; }
+  .modal p { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .modal .form-actions { margin-top: 16px; }
+  .toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+  .toast { padding: 12px 16px; border-radius: 10px; background: #111827; color: #fff; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.2); animation: pop .2s ease; }
+  .toast.error { background: var(--danger); }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px); } }
+
+  /* Responsive */
+  @media (max-width: 960px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: sticky; top: 0; height: auto; flex-direction: row; align-items: center; padding: 10px 12px; gap: 4px; overflow-x: auto; z-index: 10; border-right: 0; border-bottom: 1px solid var(--border); }
+    .brand { padding: 0 8px 0 0; font-size: 0; }
+    .brand-logo { font-size: 16px; width: 30px; height: 30px; }
+    .nav-btn { padding: 8px 10px; font-size: 13px; flex: none; }
+    .sidebar-foot { margin: 0 0 0 auto; padding: 0; background: transparent; flex: none; }
+    .mode-label { display: none; }
+    .main { padding: 18px 16px 50px; }
+    .page-head h1 { font-size: 20px; }
+    .toolbar { flex-direction: column; }
+    .toolbar .select { width: 100%; }
+    .stat-value { font-size: 20px; }
+    .toasts { left: 16px; right: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-logo">📚</div>자료 공유실</div>
+    <button class="nav-btn active" data-view="library">🗂️ <span>자료실</span></button>
+    <button class="nav-btn admin-only hidden" data-view="upload">⬆️ <span>자료 업로드</span></button>
+    <button class="nav-btn admin-only hidden" data-view="manage">⚙️ <span>관리·배포</span></button>
+    <div class="sidebar-foot" id="modeBox">
+      <div class="mode-label">현재 모드: <span class="mode-badge learner" id="modeBadge">학습자</span></div>
+      <button class="btn" id="modeToggle" style="width:100%">🔐 관리자 모드</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- 자료실 (학습자/관리자 공용) -->
+    <section id="view-library">
+      <div class="page-head">
+        <div>
+          <h1>자료실</h1>
+          <p id="libraryDesc">등록된 학습 자료를 검색하고 다운로드하세요.</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="card stat"><div class="stat-label">전체 자료</div><div class="stat-value" id="statCount">0</div></div>
+        <div class="card stat"><div class="stat-label">총 용량</div><div class="stat-value" id="statSize">0 B</div></div>
+        <div class="card stat" id="statDownloadsCard"><div class="stat-label">누적 다운로드</div><div class="stat-value" id="statDownloads">0</div></div>
+        <div class="card stat"><div class="stat-label">최근 등록</div><div class="stat-value small" id="statRecent">-</div></div>
+      </div>
+      <div class="toolbar">
+        <div class="search">
+          <span class="search-icon">🔍</span>
+          <input class="input" id="searchInput" type="search" placeholder="제목, 설명, 파일명으로 검색">
+        </div>
+        <select class="select" id="sortSelect">
+          <option value="recent">최신순</option>
+          <option value="title">제목순</option>
+          <option value="downloads">다운로드순</option>
+          <option value="size">용량순</option>
+        </select>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <!-- 업로드 (관리자) -->
+    <section id="view-upload" class="hidden">
+      <div class="page-head"><div><h1>자료 업로드</h1><p>제목·설명·파일을 등록하면 자료실에 바로 공개됩니다.</p></div></div>
+      <form class="card panel" id="uploadForm">
+        <label class="field"><span>제목 *</span><input class="input" id="titleInput" maxlength="100" placeholder="예) 1주차 강의 슬라이드" required=""></label>
+        <label class="field"><span>설명</span><textarea class="textarea" id="descInput" maxlength="1000" placeholder="자료에 대한 간단한 설명을 입력하세요."></textarea></label>
+        <div class="field" style="font-weight:600;font-size:14px;margin-bottom:20px">
+          <span style="display:block;margin-bottom:6px">파일 *</span>
+          <div class="dropzone" id="dropzone">
+            <div style="font-size:28px">📎</div>
+            <div><strong>클릭하여 파일 선택</strong> 또는 여기로 끌어다 놓기</div>
+            <div style="font-size:12px;margin-top:4px">최대 100MB</div>
+          </div>
+          <input type="file" id="fileInput" class="hidden">
+          <div id="fileChip"></div>
+        </div>
+        <div class="form-actions">
+          <button type="reset" class="btn">초기화</button>
+          <button type="submit" class="btn btn-primary" id="uploadBtn">⬆️ 업로드</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 관리·배포 (관리자) -->
+    <section id="view-manage" class="hidden">
+      <div class="page-head"><div><h1>관리·배포</h1><p>학습자 배포, 백업, 관리자 설정</p></div></div>
+      <div class="manage-grid">
+        <div class="card panel">
+          <h2 class="section-title">🌐 학습자 배포용 HTML 내보내기</h2>
+          <p class="section-desc">현재 등록된 모든 자료를 파일 하나(HTML)에 담아 내보냅니다. 이 파일은 <b>학습자 전용(읽기 전용)</b>으로 동작하며,
+            GitHub Pages·Netlify·사내 웹서버·구글 드라이브 등에 올리면 학습자가 <b>로그인 없이</b> 접속해 다운로드할 수 있습니다.</p>
+          <button class="btn btn-primary" id="exportHtmlBtn">📦 배포용 HTML 만들기</button>
+        </div>
+        <div class="card panel">
+          <h2 class="section-title">💾 백업 / 복원</h2>
+          <p class="section-desc">브라우저 저장소의 데이터를 JSON 파일로 백업하거나, 다른 PC·브라우저로 옮길 때 복원합니다.</p>
+          <div class="row-actions">
+            <button class="btn" id="backupBtn">백업 파일 저장</button>
+            <button class="btn" id="restoreBtn">백업 파일 불러오기</button>
+            <input type="file" id="restoreInput" accept=".json,application/json" class="hidden">
+          </div>
+        </div>
+        <div class="card panel">
+          <h2 class="section-title">🔑 관리자 PIN 변경</h2>
+          <p class="section-desc">관리자 모드 진입용 PIN입니다. (기본값: <code>1234</code>) — UI 수준의 구분이며 실제 보안은 서버 인증으로 대체해야 합니다.</p>
+          <div class="row-actions">
+            <input class="input" id="newPinInput" type="password" placeholder="새 PIN (4자 이상)" style="max-width:240px">
+            <button class="btn" id="changePinBtn">변경</button>
+          </div>
+        </div>
+        <div class="card panel">
+          <h2 class="section-title" style="color:var(--danger)">🗑️ 전체 삭제</h2>
+          <p class="section-desc">이 브라우저에 저장된 모든 자료를 삭제합니다. 되돌릴 수 없습니다.</p>
+          <button class="btn btn-danger" id="clearAllBtn">모든 자료 삭제</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<div id="modalRoot"></div>
+
+<script>window.__EMBEDDED__={"exportedAt":"2026-10-27T02:20:32.164Z","items":[{"id":"666a91ba-1352-4005-8715-97c7e508ee66","title":"test","description":"test","fileName":"출석부.xlsx","fileType":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","fileSize":14286,"createdAt":"2026-10-27T02:20:24.594Z","downloads":0,"data":"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"}]};</script>
+<script>
+/* =====================================================================
+ * 0. 배포용 HTML 생성을 위해, 렌더링 전 원본 HTML을 보관
+ * ===================================================================== */
+const PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+const EMBED_MARKER = '<!--' + 'EMBED-->';
+const EMBEDDED = window.__EMBEDDED__ || null;   // 배포용 HTML이면 자료 데이터가 여기에 들어있음
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
+
+/* =====================================================================
+ * 1. 데이터 계층 (Repository)
+ *    UI는 오직 `api` 객체만 사용합니다.
+ *    실제 서버로 옮길 때는 ServerProvider처럼 fetch로 같은 메서드를 구현해
+ *    `const api = ServerProvider;` 로 바꾸기만 하면 됩니다.
+ *
+ *    Material 형태: { id, title, description, fileName, fileType, fileSize, createdAt, downloads }
+ * ===================================================================== */
+
+// (a) 브라우저 저장소 Provider — 파일(Blob)은 용량이 커서 IndexedDB에 저장
+const IndexedDBProvider = (() => {
+  const DB_NAME = 'material-share-db', STORE = 'materials';
+  let dbPromise;
+  function db() {
+    dbPromise ??= new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  }
+  async function run(mode, fn) {
+    const conn = await db();
+    return new Promise((resolve, reject) => {
+      const tx = conn.transaction(STORE, mode);
+      const req = fn(tx.objectStore(STORE));
+      tx.oncomplete = () => resolve(req?.result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+  const strip = ({ blob, ...meta }) => meta;
+  return {
+    readOnly: false,
+    async list() { return (await run('readonly', s => s.getAll())).map(strip); },
+    async create({ title, description, file }) {
+      const record = {
+        id: crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2),
+        title, description,
+        fileName: file.name, fileType: file.type || 'application/octet-stream', fileSize: file.size,
+        createdAt: new Date().toISOString(), downloads: 0, blob: file,
+      };
+      await run('readwrite', s => s.put(record));
+      return strip(record);
+    },
+    async remove(id) { await run('readwrite', s => s.delete(id)); },
+    async clear() { await run('readwrite', s => s.clear()); },
+    async getFile(id) { return (await run('readonly', s => s.get(id)))?.blob; },
+    async recordDownload(id) {
+      const rec = await run('readonly', s => s.get(id));
+      if (!rec) return;
+      rec.downloads = (rec.downloads || 0) + 1;
+      await run('readwrite', s => s.put(rec));
+    },
+    async exportAll() {   // 파일까지 base64로 포함
+      const all = await run('readonly', s => s.getAll());
+      return Promise.all(all.map(async r => ({ ...strip(r), data: await blobToBase64(r.blob) })));
+    },
+    async importAll(items) {
+      for (const it of items) {
+        const { data, ...meta } = it;
+        await run('readwrite', s => s.put({ ...meta, blob: base64ToBlob(data, meta.fileType) }));
+      }
+    },
+  };
+})();
+
+// (b) 배포용 HTML Provider — 파일에 내장된 데이터만 읽기 (학습자 전용)
+const EmbeddedProvider = {
+  readOnly: true,
+  async list() { return EMBEDDED.items.map(({ data, ...meta }) => meta); },
+  async getFile(id) {
+    const it = EMBEDDED.items.find(x => x.id === id);
+    return it && base64ToBlob(it.data, it.fileType);
+  },
+  async recordDownload() {},
+};
+
+// (c) 예시: 실제 서버 연동 시 이렇게 구현 (현재 미사용)
+const ServerProvider = {
+  readOnly: false,
+  list: () => fetch('/api/materials').then(r => r.json()),
+  create: ({ title, description, file }) => {
+    const fd = new FormData(); fd.append('title', title); fd.append('description', description); fd.append('file', file);
+    return fetch('/api/materials', { method: 'POST', body: fd }).then(r => r.json());
+  },
+  remove: id => fetch(`/api/materials/${id}`, { method: 'DELETE' }),
+  getFile: id => fetch(`/api/materials/${id}/file`).then(r => r.blob()),
+  recordDownload: () => {},  // 서버가 파일 응답 시 카운트
+};
+
+const api = EMBEDDED ? EmbeddedProvider : IndexedDBProvider;
+
+// 설정(관리자 PIN 등)은 작아서 localStorage 사용
+const settings = {
+  get pin() { try { return localStorage.getItem('ms_admin_pin') || '1234'; } catch { return '1234'; } },
+  set pin(v) { try { localStorage.setItem('ms_admin_pin', v); } catch {} },
+};
+
+/* =====================================================================
+ * 2. 유틸
+ * ===================================================================== */
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result.split(',')[1] || '');
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(blob);
+  });
+}
+function base64ToBlob(b64, type) {
+  const bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: type || 'application/octet-stream' });
+}
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function highlight(text, q) {
+  const safe = esc(text);
+  if (!q) return safe;
+  const re = new RegExp('(' + esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return safe.replace(re, '<mark>$1</mark>');
+}
+function formatSize(n) {
+  if (!n) return '0 B';
+  const u = ['B', 'KB', 'MB', 'GB']; const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), 3);
+  return (n / 1024 ** i).toFixed(i ? 1 : 0) + ' ' + u[i];
+}
+const formatDate = iso => new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+const EXT_COLORS = { pdf: '#ef4444', doc: '#2563eb', docx: '#2563eb', hwp: '#0ea5e9', hwpx: '#0ea5e9', xls: '#16a34a', xlsx: '#16a34a', csv: '#16a34a',
+  ppt: '#ea580c', pptx: '#ea580c', zip: '#a16207', rar: '#a16207', '7z': '#a16207', png: '#db2777', jpg: '#db2777', jpeg: '#db2777', gif: '#db2777',
+  mp4: '#7c3aed', mov: '#7c3aed', mp3: '#9333ea', txt: '#64748b', md: '#64748b', py: '#0891b2', js: '#ca8a04', html: '#e11d48', ipynb: '#f97316' };
+function extOf(name) { const m = /\.([a-z0-9]+)$/i.exec(name || ''); return m ? m[1].toLowerCase() : 'file'; }
+
+function toast(msg, type = '') {
+  const el = Object.assign(document.createElement('div'), { className: 'toast ' + type, textContent: msg });
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+function modal({ title, message = '', input = null, confirmText = '확인', danger = false }) {
+  return new Promise(resolve => {
+    const root = document.getElementById('modalRoot');
+    root.innerHTML = `<div class="overlay"><div class="card modal" role="dialog" aria-modal="true">
+      <h3>${esc(title)}</h3>${message ? `<p>${message}</p>` : ''}
+      ${input ? `<input class="input" id="modalInput" type="${input}" autocomplete="off">` : ''}
+      <div class="form-actions"><button class="btn" data-a="cancel">취소</button>
+      <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-a="ok">${esc(confirmText)}</button></div></div></div>`;
+    const inp = root.querySelector('#modalInput');
+    const close = val => { root.innerHTML = ''; resolve(val); };
+    root.querySelector('[data-a=ok]').onclick = () => close(input ? inp.value : true);
+    root.querySelector('[data-a=cancel]').onclick = () => close(null);
+    root.querySelector('.overlay').onclick = e => { if (e.target.classList.contains('overlay')) close(null); };
+    root.onkeydown = e => { if (e.key === 'Enter') close(input ? inp.value : true); if (e.key === 'Escape') close(null); };
+    (inp || root.querySelector('[data-a=ok]')).focus();
+  });
+}
+
+/* =====================================================================
+ * 3. 상태 & 렌더링
+ * ===================================================================== */
+const state = { mode: 'learner', view: 'library', items: [], query: '', sort: 'recent' };
+const $ = id => document.getElementById(id);
+
+async function refresh() {
+  try { state.items = await api.list(); }
+  catch (e) { console.error(e); toast('저장소를 열 수 없습니다. 로컬 서버로 실행해 보세요.', 'error'); state.items = []; }
+  render();
+}
+
+function render() {
+  const isAdmin = state.mode === 'admin';
+  document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+  ['library', 'upload', 'manage'].forEach(v => $('view-' + v).classList.toggle('hidden', state.view !== v));
+  $('modeBadge').textContent = isAdmin ? '관리자' : '학습자';
+  $('modeBadge').className = 'mode-badge ' + state.mode;
+  $('modeToggle').textContent = isAdmin ? '👤 학습자 모드로' : '🔐 관리자 모드';
+  $('libraryDesc').textContent = isAdmin ? '관리자 모드: 자료를 삭제하거나 새 자료를 업로드할 수 있습니다.' : '등록된 학습 자료를 검색하고 다운로드하세요.';
+
+  // 통계
+  const items = state.items;
+  $('statCount').textContent = items.length;
+  $('statSize').textContent = formatSize(items.reduce((s, x) => s + x.fileSize, 0));
+  $('statDownloads').textContent = items.reduce((s, x) => s + (x.downloads || 0), 0).toLocaleString();
+  const recent = [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  $('statRecent').textContent = recent ? recent.title : '-';
+  $('statRecent').title = recent ? recent.title : '';
+
+  // 필터·정렬
+  const q = state.query.trim().toLowerCase();
+  const list = items
+    .filter(x => !q || [x.title, x.description, x.fileName].some(f => (f || '').toLowerCase().includes(q)))
+    .sort({
+      recent: (a, b) => b.createdAt.localeCompare(a.createdAt),
+      title: (a, b) => a.title.localeCompare(b.title, 'ko'),
+      downloads: (a, b) => (b.downloads || 0) - (a.downloads || 0),
+      size: (a, b) => b.fileSize - a.fileSize,
+    }[state.sort]);
+
+  const grid = $('grid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="card empty" style="grid-column:1/-1"><div class="empty-icon">${q ? '🔎' : '📭'}</div>
+      ${q ? `"${esc(state.query)}"에 대한 검색 결과가 없습니다.` : isAdmin ? '아직 등록된 자료가 없습니다. <b>자료 업로드</b>에서 첫 자료를 올려보세요.' : '아직 등록된 자료가 없습니다.'}</div>`;
+    return;
+  }
+  const raw = state.query.trim();
+  grid.innerHTML = list.map(x => {
+    const ext = extOf(x.fileName);
+    return `<article class="card item">
+      <div class="item-top">
+        <div class="ext" style="background:${EXT_COLORS[ext] || '#6366f1'}">${esc(ext.slice(0, 4))}</div>
+        <div style="min-width:0">
+          <h3 class="item-title">${highlight(x.title, raw)}</h3>
+          <div class="item-file">${highlight(x.fileName, raw)}</div>
+        </div>
+      </div>
+      ${x.description ? `<p class="item-desc">${highlight(x.description, raw)}</p>` : ''}
+      <div class="item-meta">
+        <span>📅 ${formatDate(x.createdAt)}</span><span>💾 ${formatSize(x.fileSize)}</span>
+        ${api.readOnly ? '' : `<span>⬇️ ${x.downloads || 0}회</span>`}
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-primary" data-download="${esc(x.id)}">⬇️ 다운로드</button>
+        ${isAdmin ? `<button class="btn btn-danger" data-delete="${esc(x.id)}" title="삭제">🗑️ 삭제</button>` : ''}
+      </div>
+    </article>`;
+  }).join('');
+}
+
+/* =====================================================================
+ * 4. 이벤트
+ * ===================================================================== */
+document.querySelectorAll('.nav-btn').forEach(b => b.onclick = () => { state.view = b.dataset.view; render(); });
+$('searchInput').oninput = e => { state.query = e.target.value; render(); };
+$('sortSelect').onchange = e => { state.sort = e.target.value; render(); };
+
+$('modeToggle').onclick = async () => {
+  if (state.mode === 'admin') { state.mode = 'learner'; state.view = 'library'; render(); return; }
+  const pin = await modal({ title: '관리자 인증', message: '관리자 PIN을 입력하세요. (기본값 1234)', input: 'password', confirmText: '들어가기' });
+  if (pin == null) return;
+  if (pin === settings.pin) { state.mode = 'admin'; render(); toast('관리자 모드로 전환했습니다.'); }
+  else toast('PIN이 올바르지 않습니다.', 'error');
+};
+
+$('grid').onclick = async e => {
+  const dl = e.target.closest('[data-download]'), del = e.target.closest('[data-delete]');
+  if (dl) {
+    const item = state.items.find(x => x.id === dl.dataset.download);
+    const blob = await api.getFile(item.id);
+    if (!blob) return toast('파일을 찾을 수 없습니다.', 'error');
+    saveBlob(blob, item.fileName);
+    await api.recordDownload(item.id);
+    refresh();
+  }
+  if (del && state.mode === 'admin') {
+    const item = state.items.find(x => x.id === del.dataset.delete);
+    const ok = await modal({ title: '자료 삭제', message: `<b>${esc(item.title)}</b> 자료를 삭제할까요?<br>삭제 후에는 복구할 수 없습니다.`, confirmText: '삭제', danger: true });
+    if (!ok) return;
+    await api.remove(item.id);
+    toast('삭제했습니다.');
+    refresh();
+  }
+};
+
+// 업로드
+let pickedFile = null;
+const dz = $('dropzone'), fileInput = $('fileInput');
+function setFile(f) {
+  if (f && f.size > MAX_FILE_SIZE) { toast('100MB 이하 파일만 업로드할 수 있습니다.', 'error'); f = null; }
+  pickedFile = f || null;
+  $('fileChip').innerHTML = pickedFile ? `<div class="file-chip"><span>📄 ${esc(pickedFile.name)} · ${formatSize(pickedFile.size)}</span>
+    <button type="button" class="btn" id="clearFile" style="padding:4px 10px">✕</button></div>` : '';
+  if (pickedFile) $('clearFile').onclick = () => { fileInput.value = ''; setFile(null); };
+  if (pickedFile && !$('titleInput').value) $('titleInput').value = pickedFile.name.replace(/\.[^.]+$/, '');
+}
+dz.onclick = () => fileInput.click();
+fileInput.onchange = () => setFile(fileInput.files[0]);
+dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
+dz.ondragleave = () => dz.classList.remove('drag');
+dz.ondrop = e => { e.preventDefault(); dz.classList.remove('drag'); setFile(e.dataTransfer.files[0]); };
+$('uploadForm').onreset = () => setTimeout(() => setFile(null));
+$('uploadForm').onsubmit = async e => {
+  e.preventDefault();
+  const title = $('titleInput').value.trim(), description = $('descInput').value.trim();
+  if (!title) return toast('제목을 입력하세요.', 'error');
+  if (!pickedFile) return toast('파일을 선택하세요.', 'error');
+  const btn = $('uploadBtn'); btn.disabled = true; btn.textContent = '업로드 중...';
+  try {
+    await api.create({ title, description, file: pickedFile });
+    e.target.reset(); setFile(null);
+    toast('업로드 완료!');
+    state.view = 'library';
+    await refresh();
+  } catch (err) {
+    console.error(err); toast('업로드 실패: 저장 공간이 부족하거나 저장소에 접근할 수 없습니다.', 'error');
+  } finally { btn.disabled = false; btn.textContent = '⬆️ 업로드'; }
+};
+
+// 관리·배포
+$('exportHtmlBtn').onclick = async () => {
+  if (!state.items.length) return toast('내보낼 자료가 없습니다.', 'error');
+  const total = state.items.reduce((s, x) => s + x.fileSize, 0);
+  if (total > 50 * 1024 * 1024) {
+    const ok = await modal({ title: '용량 주의', message: `자료 총 용량이 ${formatSize(total)}입니다. HTML 파일이 매우 커질 수 있습니다. 계속할까요?` });
+    if (!ok) return;
+  }
+  const items = await IndexedDBProvider.exportAll();
+  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), items }).replace(/</g, '\\u003c');
+  const html = PRISTINE_HTML.replace(EMBED_MARKER, `<script>window.__EMBEDDED__=${payload};<\/script>`);
+  saveBlob(new Blob([html], { type: 'text/html' }), 'materials-share.html');
+  toast('배포용 HTML을 저장했습니다.');
+};
+$('backupBtn').onclick = async () => {
+  const items = await IndexedDBProvider.exportAll();
+  saveBlob(new Blob([JSON.stringify({ version: 1, items })], { type: 'application/json' }), `materials-backup-${new Date().toISOString().slice(0, 10)}.json`);
+};
+$('restoreBtn').onclick = () => $('restoreInput').click();
+$('restoreInput').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const { items } = JSON.parse(await f.text());
+    await IndexedDBProvider.importAll(items);
+    toast(`${items.length}개 자료를 복원했습니다.`);
+    refresh();
+  } catch (err) { console.error(err); toast('올바른 백업 파일이 아닙니다.', 'error'); }
+};
+$('changePinBtn').onclick = () => {
+  const v = $('newPinInput').value.trim();
+  if (v.length < 4) return toast('PIN은 4자 이상이어야 합니다.', 'error');
+  settings.pin = v; $('newPinInput').value = ''; toast('PIN을 변경했습니다.');
+};
+$('clearAllBtn').onclick = async () => {
+  const ok = await modal({ title: '모든 자료 삭제', message: '이 브라우저에 저장된 모든 자료가 삭제됩니다. 계속할까요?', confirmText: '전체 삭제', danger: true });
+  if (!ok) return;
+  await IndexedDBProvider.clear(); toast('모든 자료를 삭제했습니다.'); refresh();
+};
+
+// 배포용 HTML(학습자 전용)에서는 관리자 기능 숨김
+if (EMBEDDED) {
+  $('modeBox').classList.add('hidden');
+  document.querySelectorAll('.admin-only').forEach(el => el.remove());
+  $('statDownloadsCard').classList.add('hidden');
+  document.querySelector('.stats').style.gridTemplateColumns = 'repeat(auto-fit, minmax(160px, 1fr))';
+}
+
+refresh();
+</script></body></html>
